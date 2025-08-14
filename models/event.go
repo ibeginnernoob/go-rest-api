@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"rest/goAPI/db"
 	"time"
 
@@ -13,6 +14,14 @@ type Event struct {
 	Name        string `binding:"required"`
 	Description string `binding:"required"`
 	Location    string `binding:"required"`
+	DateTime    time.Time
+	UserId      int
+}
+
+type UpdateEvent struct {
+	Name        string
+	Description string
+	Location    string
 	DateTime    time.Time
 	UserId      int
 }
@@ -54,7 +63,7 @@ func GetEvents() ([]Event, error) {
 		return nil, errors.New("could not fetch events")
 	}
 
-	rows.Close()
+	defer rows.Close()
 	var events []Event
 
 	for rows.Next() {
@@ -68,10 +77,12 @@ func GetEvents() ([]Event, error) {
 		events = append(events, event)
 	}
 
+	fmt.Println(events)
+
 	return events, nil
 }
 
-func GetEvent(id string) (Event, error) {
+func GetEventByID(id string) (Event, error) {
 	query := `
 	SELECT * FROM events WHERE id = ?
 	`
@@ -81,20 +92,73 @@ func GetEvent(id string) (Event, error) {
 		return Event{}, errors.New("could not prepare query")
 	}
 
-	rows, err := stmt.Query(id)
-	if err != nil {
-		return Event{}, errors.New("could not fetch event")
-	}
+	row := stmt.QueryRow(id)
 
 	stmt.Close()
 
 	var event Event
-	for rows.Next() {
-		err := rows.Scan(&event.Id, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserId)
-		if err != nil {
-			return Event{}, errors.New("some error in scanning the event row")
-		}
+	err = row.Scan(&event.Id, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserId)
+	if err != nil {
+		return Event{}, errors.New("some error in scanning the event row")
 	}
 
 	return event, nil
+}
+
+func UpdateEventById(id string, details UpdateEvent) error {
+	oldEvent, err := GetEventByID(id)
+
+	if err != nil {
+		return errors.New("could not update event, could not fetch old event")
+	}
+
+	query := `
+	UPDATE events
+	SET name=?, description=?, location=?, dateTime=?, user_id=?
+	WHERE id=?
+	`
+
+	if len(details.Name) > 0 {
+		oldEvent.Name = details.Name
+	}
+	if len(details.Description) > 0 {
+		oldEvent.Description = details.Description
+	}
+	if len(details.Location) > 0 {
+		oldEvent.Location = details.Location
+	}
+	if !details.DateTime.IsZero() {
+		oldEvent.DateTime = details.DateTime
+	}
+	if details.UserId != 0 {
+		oldEvent.UserId = details.UserId
+	}
+
+	_, err = db.DB.Exec(query, oldEvent.Name, oldEvent.Description, oldEvent.Location, oldEvent.DateTime, oldEvent.UserId, oldEvent.Id)
+
+	if err != nil {
+		return errors.New("could not update event")
+	}
+
+	return nil
+}
+
+func DeleteEventById(id string) error {
+	query := `
+	DELETE FROM events WHERE id = ?
+	`
+
+	stmt, err := db.DB.Prepare(query)
+	if err != nil {
+		return errors.New("some error occured during query prep")
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	if err != nil {
+		return errors.New("could not delete event")
+	}
+
+	return nil
 }

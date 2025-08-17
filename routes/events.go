@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"rest/goAPI/middlewares"
 	"rest/goAPI/models"
-	"rest/goAPI/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,8 +36,8 @@ func createEvent(ctx *gin.Context) {
 		return
 	}
 
-	payload, err := utils.ValidateToken(token)
-	if err != nil {
+	isAuth, payload := middlewares.IsAuth(token)
+	if !isAuth {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"msg": "invalid jwt, pls sign in",
 		})

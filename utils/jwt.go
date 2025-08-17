@@ -35,14 +35,19 @@ func CreateToken(id string) (string, error) {
 
 func ValidateToken(tokenString string) (*Payload, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Payload{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return StringToBytes(Secret), nil
 	})
-
 	if err != nil {
 		return nil, errors.New("not a valid jwt")
 	}
 
-	claims := token.Claims.(*Payload)
+	claims, ok := token.Claims.(*Payload)
+	if !ok {
+		return nil, errors.New("payload does not follow specific structure")
+	}
 
 	return claims, nil
 }

@@ -15,7 +15,7 @@ type Event struct {
 	Description string `binding:"required"`
 	Location    string `binding:"required"`
 	DateTime    time.Time
-	UserId      int
+	UserId      int64
 }
 
 type UpdateEvent struct {
@@ -23,7 +23,7 @@ type UpdateEvent struct {
 	Description string
 	Location    string
 	DateTime    time.Time
-	UserId      int
+	UserId      int64
 }
 
 func (e *Event) Save() error {

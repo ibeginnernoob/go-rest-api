@@ -3,9 +3,11 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"rest/goAPI/models"
+	"rest/goAPI/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,9 +28,34 @@ func getEvents(ctx *gin.Context) {
 }
 
 func createEvent(ctx *gin.Context) {
-	var newEvent models.Event
+	token := ctx.Request.Header.Get("Authorization")
+	if token == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"msg": "no jwt sent",
+		})
+		return
+	}
 
-	err := ctx.ShouldBind(&newEvent)
+	payload, err := utils.ValidateToken(token)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"msg": "invalid jwt, pls sign in",
+		})
+		return
+	}
+
+	var newEvent models.Event
+	userId, err := strconv.ParseInt(payload.Id, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"msg": "could not convert id string to int",
+		})
+		return
+	}
+
+	newEvent.UserId = userId
+
+	err = ctx.ShouldBind(&newEvent)
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{

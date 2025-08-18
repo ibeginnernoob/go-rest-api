@@ -1,12 +1,26 @@
 package middlewares
 
-import "rest/goAPI/utils"
+import (
+	"net/http"
+	"rest/goAPI/utils"
 
-func IsAuth(tokenString string) (bool, *utils.Payload) {
+	"github.com/gin-gonic/gin"
+)
+
+func IsAuth(ctx *gin.Context) {
+	tokenString := ctx.Request.Header.Get("Authorization")
 	payload, err := utils.ValidateToken(tokenString)
 	if err != nil {
-		return false, nil
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
 	}
 
-	return true, payload
+	userId := payload.Id
+	if userId == "" {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+
+	ctx.Set("userId", userId)
+	ctx.Next()
 }

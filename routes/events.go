@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"rest/goAPI/middlewares"
 	"rest/goAPI/models"
 
 	"github.com/gin-gonic/gin"
@@ -28,24 +27,21 @@ func getEvents(ctx *gin.Context) {
 }
 
 func createEvent(ctx *gin.Context) {
-	token := ctx.Request.Header.Get("Authorization")
-	if token == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"msg": "no jwt sent",
-		})
-		return
-	}
-
-	isAuth, payload := middlewares.IsAuth(token)
-	if !isAuth {
+	userId, ok := ctx.Get("userId")
+	if !ok {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"msg": "invalid jwt, pls sign in",
+			"msg": "invalid jwt token payload",
 		})
 		return
 	}
-
-	var newEvent models.Event
-	userId, err := strconv.ParseInt(payload.Id, 10, 64)
+	typedUserId, ok := userId.(string)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"msg": "invalid jwt token payload",
+		})
+		return
+	}
+	id, err := strconv.ParseInt(typedUserId, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"msg": "could not convert id string to int",
@@ -53,9 +49,10 @@ func createEvent(ctx *gin.Context) {
 		return
 	}
 
-	newEvent.UserId = userId
+	var newEvent models.Event
 
 	err = ctx.ShouldBind(&newEvent)
+	newEvent.UserId = id
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -104,6 +101,15 @@ func getEvent(ctx *gin.Context) {
 }
 
 func updateEvent(ctx *gin.Context) {
+	userId := ctx.GetString("userId")
+	intUserId, err := strconv.ParseInt(userId, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"msg": "could not convert id string to int",
+		})
+		return
+	}
+
 	id := ctx.Param("eventId")
 
 	if len(id) == 0 {
@@ -115,7 +121,7 @@ func updateEvent(ctx *gin.Context) {
 
 	var newDetails models.UpdateEvent
 
-	err := ctx.ShouldBind(&newDetails)
+	err = ctx.ShouldBind(&newDetails)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"msg": "invalid details provided",
@@ -123,10 +129,18 @@ func updateEvent(ctx *gin.Context) {
 		return
 	}
 
-	err = models.UpdateEventById(id, newDetails)
+	err = models.UpdateEventById(id, newDetails, intUserId)
 	if err != nil {
+		if err.Error() == "current user does not own this event" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{
+				"msg":   "could not update event",
+				"error": err.Error(),
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "could not update event",
+			"msg":   "could not update event",
+			"error": err.Error(),
 		})
 		return
 	}
@@ -137,6 +151,15 @@ func updateEvent(ctx *gin.Context) {
 }
 
 func deleteEvent(ctx *gin.Context) {
+	userId := ctx.GetString("userId")
+	intUserId, err := strconv.ParseInt(userId, 10, 64)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"msg": "could not convert id string to int",
+		})
+		return
+	}
+
 	id := ctx.Param("eventId")
 
 	if len(id) == 0 {
@@ -146,10 +169,18 @@ func deleteEvent(ctx *gin.Context) {
 		return
 	}
 
-	err := models.DeleteEventById(id)
+	err = models.DeleteEventById(id, intUserId)
 	if err != nil {
+		if err.Error() == "current user does not own this event" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{
+				"msg":   "could not update event",
+				"error": err.Error(),
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "could not delete event",
+			"msg":   "could not update event",
+			"error": err.Error(),
 		})
 		return
 	}

@@ -105,11 +105,13 @@ func GetEventByID(id string) (Event, error) {
 	return event, nil
 }
 
-func UpdateEventById(id string, details UpdateEvent) error {
+func UpdateEventById(id string, details UpdateEvent, userId int64) error {
 	oldEvent, err := GetEventByID(id)
-
 	if err != nil {
 		return errors.New("could not update event, could not fetch old event")
+	}
+	if oldEvent.UserId != userId {
+		return errors.New("current user does not own this event")
 	}
 
 	query := `
@@ -143,7 +145,15 @@ func UpdateEventById(id string, details UpdateEvent) error {
 	return nil
 }
 
-func DeleteEventById(id string) error {
+func DeleteEventById(id string, userId int64) error {
+	oldEvent, err := GetEventByID(id)
+	if err != nil {
+		return errors.New("could not update event, could not fetch old event")
+	}
+	if oldEvent.UserId != userId {
+		return errors.New("current user does not own this event")
+	}
+
 	query := `
 	DELETE FROM events WHERE id = ?
 	`

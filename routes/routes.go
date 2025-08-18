@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"rest/goAPI/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,9 +18,15 @@ func RegisterRoutes(server *gin.Engine) {
 
 	server.GET("/events", getEvents)
 	server.GET("/events/:eventId", getEvent)
-	server.POST("/events", createEvent)
-	server.PUT("/events/:eventId", updateEvent)
-	server.DELETE("/events/:eventId", deleteEvent)
+	authorized := server.Group("/")
+	authorized.Use(middlewares.IsAuth)
+	{
+		authorized.POST("/events", createEvent)
+		authorized.PUT("/events/:eventId", updateEvent)
+		authorized.DELETE("/events/:eventId", deleteEvent)
+		authorized.POST("/register")
+		authorized.DELETE("/register")
+	}
 
 	server.GET("/users", getUsers)
 	server.DELETE("/users", deleteUsers)

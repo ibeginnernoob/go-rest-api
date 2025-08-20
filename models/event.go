@@ -34,19 +34,19 @@ func (e *Event) Save() error {
 
 	stmt, err := db.DB.Prepare(insertQuery)
 	if err != nil {
-		return errors.New("could not run the insert query")
+		return errors.New("some error occcured while preparing the query")
 	}
 
 	result, err := stmt.Exec(e.Name, e.Description, e.Location, e.DateTime, e.UserId)
 	if err != nil {
-		return errors.New("could not insert the new event")
+		return errors.New("could not create new event")
 	}
 
 	defer stmt.Close()
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return errors.New("some error occured")
+		return errors.New("some unknown error occured")
 	}
 
 	e.Id = id
@@ -60,7 +60,7 @@ func GetEvents() ([]Event, error) {
 
 	rows, err := db.DB.Query(getQuery)
 	if err != nil {
-		return nil, errors.New("could not fetch events")
+		return nil, errors.New("error fetching events")
 	}
 
 	defer rows.Close()
@@ -71,7 +71,7 @@ func GetEvents() ([]Event, error) {
 
 		err := rows.Scan(&event.Id, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserId)
 		if err != nil {
-			return nil, errors.New("fetching a row from the DB failed")
+			return nil, errors.New("scanning a row from the DB failed")
 		}
 
 		events = append(events, event)
@@ -99,7 +99,7 @@ func GetEventByID(id string) (Event, error) {
 	var event Event
 	err = row.Scan(&event.Id, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserId)
 	if err != nil {
-		return Event{}, errors.New("some error in scanning the event row")
+		return Event{}, errors.New("some unknown error occured while scanning the event row")
 	}
 
 	return event, nil
@@ -108,10 +108,10 @@ func GetEventByID(id string) (Event, error) {
 func UpdateEventById(id string, details UpdateEvent, userId int64) error {
 	oldEvent, err := GetEventByID(id)
 	if err != nil {
-		return errors.New("could not update event, could not fetch old event")
+		return errors.New("error fetching old event")
 	}
 	if oldEvent.UserId != userId {
-		return errors.New("current user does not own this event")
+		return errors.New("user unauthorized")
 	}
 
 	query := `
@@ -139,7 +139,7 @@ func UpdateEventById(id string, details UpdateEvent, userId int64) error {
 	_, err = db.DB.Exec(query, oldEvent.Name, oldEvent.Description, oldEvent.Location, oldEvent.DateTime, oldEvent.UserId, oldEvent.Id)
 
 	if err != nil {
-		return errors.New("could not update event")
+		return errors.New("some unknown error occured while updating event")
 	}
 
 	return nil
@@ -148,10 +148,10 @@ func UpdateEventById(id string, details UpdateEvent, userId int64) error {
 func DeleteEventById(id string, userId int64) error {
 	oldEvent, err := GetEventByID(id)
 	if err != nil {
-		return errors.New("could not update event, could not fetch old event")
+		return errors.New("error fetching old event")
 	}
 	if oldEvent.UserId != userId {
-		return errors.New("current user does not own this event")
+		return errors.New("user unauthorized")
 	}
 
 	query := `
@@ -160,14 +160,14 @@ func DeleteEventById(id string, userId int64) error {
 
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
-		return errors.New("some error occured during query prep")
+		return errors.New("some unknown error occured while deleting event")
 	}
 
 	defer stmt.Close()
 
 	_, err = stmt.Exec(id)
 	if err != nil {
-		return errors.New("could not delete event")
+		return errors.New("event deletion failed")
 	}
 
 	return nil

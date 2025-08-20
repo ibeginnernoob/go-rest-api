@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,13 +14,13 @@ func getEvents(ctx *gin.Context) {
 	events, err := models.GetEvents()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "could not fetch events",
+			"msg": err.Error(),
 		})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"msg":    "done",
+		"msg":    "events fetched successfully",
 		"events": events,
 	})
 }
@@ -30,7 +29,7 @@ func createEvent(ctx *gin.Context) {
 	userId, ok := ctx.Get("userId")
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"msg": "invalid jwt token payload",
+			"msg": "no signed in user detected",
 		})
 		return
 	}
@@ -44,7 +43,7 @@ func createEvent(ctx *gin.Context) {
 	id, err := strconv.ParseInt(typedUserId, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"msg": "could not convert id string to int",
+			"msg": "some error occured in the user's id",
 		})
 		return
 	}
@@ -56,7 +55,7 @@ func createEvent(ctx *gin.Context) {
 
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"msg": "Insufficient event data provided.",
+			"msg": "insufficient event data",
 		})
 		return
 	}
@@ -64,24 +63,23 @@ func createEvent(ctx *gin.Context) {
 	err = newEvent.Save()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": err,
+			"msg": err.Error(),
 		})
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
-		"msg":   "Event creation successful.",
+		"msg":   "event creation successful",
 		"event": newEvent,
 	})
 }
 
 func getEvent(ctx *gin.Context) {
 	eventId := ctx.Param("eventId")
-	fmt.Println("new request with id", eventId)
 
 	if len(eventId) == 0 {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "pls enter a valid event id in the req params",
+			"msg": "please previde a valid event id",
 		})
 		return
 	}
@@ -89,13 +87,13 @@ func getEvent(ctx *gin.Context) {
 	event, err := models.GetEventByID(eventId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "could not fetch event",
+			"msg": err.Error(),
 		})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"msg":   "event fetch successfully",
+		"msg":   "event fetched successfully",
 		"event": event,
 	})
 }
@@ -105,7 +103,7 @@ func updateEvent(ctx *gin.Context) {
 	intUserId, err := strconv.ParseInt(userId, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"msg": "could not convert id string to int",
+			"msg": "some unknown error occured with user id",
 		})
 		return
 	}
@@ -124,21 +122,20 @@ func updateEvent(ctx *gin.Context) {
 	err = ctx.ShouldBind(&newDetails)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"msg": "invalid details provided",
+			"msg": "invalid event details provided",
 		})
 		return
 	}
 
 	err = models.UpdateEventById(id, newDetails, intUserId)
 	if err != nil {
+		var statusCode int
 		if err.Error() == "current user does not own this event" {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"msg":   "could not update event",
-				"error": err.Error(),
-			})
-			return
+			statusCode = http.StatusUnauthorized
+		} else {
+			statusCode = http.StatusInternalServerError
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{
+		ctx.JSON(statusCode, gin.H{
 			"msg":   "could not update event",
 			"error": err.Error(),
 		})
@@ -155,7 +152,7 @@ func deleteEvent(ctx *gin.Context) {
 	intUserId, err := strconv.ParseInt(userId, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"msg": "could not convert id string to int",
+			"msg": "some error in the user's id",
 		})
 		return
 	}
@@ -171,14 +168,13 @@ func deleteEvent(ctx *gin.Context) {
 
 	err = models.DeleteEventById(id, intUserId)
 	if err != nil {
+		var statusCode int
 		if err.Error() == "current user does not own this event" {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"msg":   "could not update event",
-				"error": err.Error(),
-			})
-			return
+			statusCode = http.StatusUnauthorized
+		} else {
+			statusCode = http.StatusInternalServerError
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{
+		ctx.JSON(statusCode, gin.H{
 			"msg":   "could not update event",
 			"error": err.Error(),
 		})
